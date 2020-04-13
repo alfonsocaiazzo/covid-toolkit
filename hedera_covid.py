@@ -76,7 +76,7 @@ class DataHandler:
         self.countries.append(c)
         
     # return data structures to be used with plotly
-    def get_confirmed_data(self,start_date=0,n_smooth=7,rescale=True):
+    def get_confirmed_data(self,start_date=0,n_smooth=7,rescale=True,plot_type="scatter"):
         
         N = len(self.countries[0]['confirmed'])
         ind = np.arange(len(self.countries[0]['dates']))
@@ -87,7 +87,7 @@ class DataHandler:
             if rescale:
                 start_date = 0
                 s0 = c['start']
-                x = ind[s0:len(c['dates'])-1]
+                x = ind[s0:N-1]-s0
             else:
                 s0 = 0
                 x = c['dates'][s0:len(c['dates'])-1]
@@ -96,7 +96,7 @@ class DataHandler:
             cases = smoothed[s0:N-1]
     
             plots = {
-                "type": "bar",
+                "type": plot_type,
                 "name": c['name'],
                 "x": x,
                 "y": cases
@@ -105,6 +105,126 @@ class DataHandler:
         
         return plotly_data
                 
+    # return data structures to be used with plotly
+    def get_deaths_data(self,start_date=0,n_smooth=7,rescale=True,plot_type="scatter"):
+        
+        N = len(self.countries[0]['deaths'])
+        ind = np.arange(len(self.countries[0]['dates']))
+        plotly_data = []
+        
+        for c in self.countries:
+        
+            if rescale:
+                start_date = 0
+                s0 = c['start_death']
+                x = ind[s0:N-1]-s0
+            else:
+                s0 = start_date
+                x = c['dates'][s0:len(c['dates'])-1]
+                
+            smoothed = smooth_data(c['deaths'],n_smooth)
+            cases = smoothed[s0:N-1]
+    
+            plots = {
+                "type": plot_type,
+                "name": c['name'],
+                "x": x,
+                "y": cases
+            }
+            plotly_data.append(plots)
+        
+        return plotly_data
+    
+    # return data structures to be used with plotly
+    def get_daily_confirmed_data(self,start_date=0,n_smooth=7,rescale=True,plot_type="scatter"):
+        
+        N = len(self.countries[0]['confirmed'])
+        ind = np.arange(len(self.countries[0]['dates']))
+        plotly_data = []
+        
+        for c in self.countries:
+        
+            if rescale:
+                start_date = 0
+                s0 = c['start']
+                x = ind[s0:N-1]-s0
+            else:
+                s0 = start_date
+                x = c['dates'][s0:len(c['dates'])-1]
+                
+            smoothed = smooth_data(c['daily_new_cases'],n_smooth)
+            cases = smoothed[s0:N-1]
+    
+            plots = {
+                "type": plot_type,
+                "name": c['name'],
+                "x": x,
+                "y": cases
+            }
+            plotly_data.append(plots)
+        
+        return plotly_data
+    
+    # return data structures to be used with plotly
+    def get_daily_deaths_data(self,start_date=0,n_smooth=7,rescale=True,plot_type="scatter"):
+        
+        N = len(self.countries[0]['deaths'])
+        ind = np.arange(len(self.countries[0]['dates']))
+        plotly_data = []
+        
+        for c in self.countries:
+        
+            if rescale:
+                start_date = 0
+                s0 = c['start_death']
+                x = ind[s0:N-1]-s0
+            else:
+                s0 = start_date
+                x = c['dates'][s0:len(c['dates'])-1]
+                
+            smoothed = smooth_data(c['daily_deaths'],n_smooth)
+            cases = smoothed[s0:N-1]
+    
+            plots = {
+                "type": plot_type,
+                "name": c['name'],
+                "x": x,
+                "y": cases
+            }
+            plotly_data.append(plots)
+        
+        return plotly_data
+    
+    # return data structures to be used with plotly
+    def get_death_rate_data(self,start_date=0,n_smooth=7,rescale=True,plot_type="scatter"):
+        
+        N = len(self.countries[0]['confirmed'])
+        ind = np.arange(len(self.countries[0]['dates']))
+        plotly_data = []
+        
+        for c in self.countries:
+        
+            if rescale:
+                start_date = 0
+                s0 = c['start']
+                x = ind[s0:N-1]-s0
+            else:
+                s0 = start_date
+                x = c['dates'][s0:len(c['dates'])-1]
+             
+            drate = c['deaths']/(c['confirmed']+0.1)
+            smoothed = smooth_data(drate,n_smooth)
+            cases = smoothed[s0:N-1]
+    
+            plots = {
+                "type": plot_type,
+                "name": c['name'],
+                "x": x,
+                "y": cases
+            }
+            plotly_data.append(plots)
+        
+        return plotly_data
                         
             
     
@@ -131,7 +251,7 @@ def smooth_data(array_in,n):
     N = len(array_in)
 
     for k in range(0,n):
-        smoothed.append(sum(array_in[k:k+n])/n)
+        smoothed.append(sum(array_in[0:k+1])/(k+1))
         
     for k in range(n,N):
         smoothed.append(sum(array_in[k-n:k])/n)
