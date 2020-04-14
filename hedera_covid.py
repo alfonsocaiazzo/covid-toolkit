@@ -12,14 +12,144 @@ import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import datetime
 
-# a class to handle the data
+class DataHandlerBerlin:
+    def __init__(self,path=None):
+        if path==None:
+            path = '/Users/caiazzo/HEDERA/CODES/covid-19-toolkit/DE-Data/data-fIw01.csv'
+        self.data = pd.read_csv(path)
+        self.data.columns = ['dates','confirmed','stationary','intensive','deaths']
+        
+        N = len(self.data['dates'])
+        dates = []
+        for d in self.data['dates']:
+            dt = datetime.datetime(int(d[6:10]),int(d[3:5]),int(d[0:2]))
+            dates.append(dt.strftime('%d %b'))
+        self.data['dates']=dates
+        confirmed_daily = []
+        deaths_daily = []
+        
+        confirmed_daily.append(0)
+        deaths_daily.append(0)
+
+        for i in range(0,N-1):
+            confirmed_daily.append(self.data['confirmed'][i+1]-
+                                   self.data['confirmed'][i])
+            deaths_daily.append(self.data['deaths'][i+1]-
+                                self.data['deaths'][i])
+            
+        self.data['confirmed_daily'] = confirmed_daily
+        self.data['deaths_daily'] = deaths_daily
+
+
+class DataHandlerItaly:
+    def __init__(self,path=None):
+        if path==None:
+            path = '/Users/caiazzo/HEDERA/CODES/covid-19-toolkit/IT-Data/dati-regioni/dpc-covid19-ita-regioni.csv'
+        self.data = pd.read_csv(path)
+        dates = []
+        for d in self.data['data']:
+            t = datetime.datetime.fromisoformat(d)
+            dates.append(t.strftime('%b %d'))
+
+        self.data['dates'] = dates
+
+    def get_region_by_code(self,code):
+        return self.get_region(code=code)
+    
+    def get_region_by_name(self,name):
+        return self.get_region(name=name)
+        
+    def get_region(self,name=None,code=None):
+        if name==None:
+            select = self.data['codice_regione']==code
+        else:
+            select = self.data['denominazione_regione']==name
+        
+        return self.data[select]
+    
+    def get_all_region_names(self):
+        
+        r = self.data['denominazione_regione']
+        return np.unique(r)
+        
+    def get_all_variables(self):
+        labels = ['ricoverati_con_sintomi', 'terapia_intensiva',
+                      'totale_ospedalizzati', 'isolamento_domiciliare', 
+                      'totale_positivi','variazione_totale_positivi', 
+                      'nuovi_positivi', 'dimessi_guariti','deceduti', 
+                      'totale_casi', 'tamponi']
+        return labels
+    
+    def get_plot_data(self,region_name,label,
+                      n_smooth =0,
+                      plot_type='scatter'):
+        
+        region = self.get_region_by_name(region_name)
+        N = len(region['dates'])
+        cases = smooth_data(region[label],n_smooth)
+        x = region['dates'][0:N]
+        plot_data = {
+                "type": plot_type,
+                "name": region_name + '(' + label +')',
+                "x": x,
+                "y": cases
+            }
+        return plot_data
+    
+    def get_region_overview_plot_data(self,name,labels=None,
+                                      start_date = 0,
+                                      n_smooth = 0,
+                                      rescale = False,
+                                      plot_type='scatter'):
+        
+        
+        region = self.get_region_by_name(name)
+        N = len(region['dates'])
+        ind = np.arange(N)
+
+        plot_data = []
+        if labels == None:
+            labels = ['ricoverati_con_sintomi', 'terapia_intensiva',
+                      'totale_ospedalizzati', 'isolamento_domiciliare', 
+                      'totale_positivi','variazione_totale_positivi', 
+                      'nuovi_positivi', 'dimessi_guariti','deceduti', 
+                      'totale_casi', 'tamponi']
+        
+        for l in labels:
+        
+            if rescale:
+                start_date = 0
+                s0 = 0
+                x = ind[s0:N-1]-s0
+            else:
+                s0 = start_date
+                x = region['dates'][s0:N-1]
+                
+            smoothed = smooth_data(region[l],n_smooth)
+            cases = smoothed[s0:N-1]
+    
+            plots = {
+                "type": plot_type,
+                "name": name + '(' + l +')',
+                "x": x,
+                "y": cases
+            }
+            plot_data.append(plots)
+        
+        return plot_data
+        
+
+# a class to handle the data (JHU)
 class DataHandler:
     def __init__(self,data_confirmed_path,data_death_path):
         
+        # dataframe of confirmed data
         self.confirmed = pd.read_csv(data_confirmed_path)
         self.death = pd.read_csv(data_death_path)
         self.countries = []
+                       
     # get data related to single country
     def get_country(self,name):
         # confirmed cases
@@ -89,7 +219,7 @@ class DataHandler:
                 s0 = c['start']
                 x = ind[s0:N-1]-s0
             else:
-                s0 = 0
+                s0 = start_date
                 x = c['dates'][s0:len(c['dates'])-1]
                 
             smoothed = smooth_data(c['confirmed'],n_smooth)
@@ -226,20 +356,29 @@ class DataHandler:
         
         return plotly_data
                         
+####################################################################
+# plot an array of dict
+# plot_data should contain: x,y,name,type
             
+def plot_structure(plot_data,title=None):
     
-        
+    fig, ax = plt.subplots(figsize=(13,7))  
     
-class Plotter:
-    def __init__(self, handler):
-        self.n_countries = 0
-        self.countries = []
-        self.handler = handler
+    ind = np.arange(len(plot_data[0]['x']))
+    for p in plot_data:
+        plt.plot(p['x'],p['y'],label=p['name'])
     
-    def add_country(self,c_name):
-        c = self.handler.get_country(c_name)
-        self.countries.append(c)
-        self.n_countries += 1
+    plt.xticks(ind, plot_data[0]['x'], rotation=90) 
+    
+    plt.legend(framealpha=1,frameon=False,bbox_to_anchor=(1.15,0.3),
+                       loc='upper center').set_draggable(True)
+    if not title == None:
+        plt.title(title)
+    #plt.xlim(start_date,ind[len(ind)-1])
+    plt.show()
+
+    
+    
     
 ####################################################################
 # simple function to smooth recorded data over n days
@@ -257,6 +396,11 @@ def smooth_data(array_in,n):
         smoothed.append(sum(array_in[k-n:k])/n)
         
     return np.array(smoothed)
+
+
+
+####################################################################
+# OLD FUNCTIONS
 
 # plot the ration deaths/confirmed
 def plot_death_rate(countries,start_date=0):
